@@ -1,0 +1,361 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  INVENTORY
+  SALES
+}
+
+enum DocumentStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum BatchStatus {
+  AVAILABLE
+  QUARANTINED
+  RECALLED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum MovementType {
+  RECEIPT
+  SALE
+  ADJUSTMENT
+}
+
+// Phase 1: one operational role and at most one pharmacy per user.
+// ADMIN has no pharmacy. A membership table can replace this assignment later.
+model Pharmacy {
+  id            String         @id @default(cuid())
+  code          String         @unique @db.VarChar(40)
+  name          String         @db.VarChar(160)
+  address       String         @db.VarChar(255)
+  phone         String         @db.VarChar(30)
+  email         String?        @db.VarChar(160)
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  users         User[]
+  medicines     Medicine[]
+  suppliers     Supplier[]
+  receipts      GoodsReceipt[]
+  stocktakes    Stocktake[]
+  sales         Sale[]
+  prescriptions Prescription[]
+  auditLogs     AuditLog[]
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique @db.VarChar(160)
+  name         String         @db.VarChar(120)
+  passwordHash String         @db.VarChar(255)
+  role         Role
+  pharmacyId   String?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  pharmacy     Pharmacy?      @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  sessions     Session[]
+  receipts     GoodsReceipt[]
+  stocktakes   Stocktake[]
+  sales        Sale[]
+  auditLogs    AuditLog[]
+
+  @@index([pharmacyId, role, active])
+}
+
+model Session {
+  id        String   @id // SHA-256 of an opaque, random cookie token. Never store the token.
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Medicine {
+  id                 String             @id @default(cuid())
+  pharmacyId         String
+  code               String             @db.VarChar(40)
+  name               String             @db.VarChar(160)
+  ingredient         String             @db.VarChar(160)
+  strength           String             @db.VarChar(80)
+  unit               String             @db.VarChar(40)
+  manufacturer       String             @db.VarChar(160)
+  barcode            String?            @db.VarChar(64)
+  registrationNumber String?            @db.VarChar(80)
+  storageLocation    String?            @db.VarChar(80)
+  category           String             @db.VarChar(80)
+  prescription       Boolean            @default(false)
+  salePrice          Decimal            @db.Decimal(14, 2)
+  lowStock           Int                @default(30)
+  description        String?            @db.Text
+  active             Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  pharmacy           Pharmacy           @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  batches            MedicineBatch[]
+  receiptItems       GoodsReceiptItem[]
+
+  @@unique([id, pharmacyId])
+  @@unique([pharmacyId, code])
+  @@unique([pharmacyId, barcode])
+  @@index([pharmacyId, active, category])
+  @@index([pharmacyId, name])
+}
+
+model Supplier {
+  id          String         @id @default(cuid())
+  pharmacyId  String
+  code        String         @db.VarChar(40)
+  name        String         @db.VarChar(160)
+  address     String         @db.VarChar(255)
+  phone       String         @db.VarChar(30)
+  email       String?        @db.VarChar(160)
+  taxCode     String?        @db.VarChar(40)
+  contactName String?        @db.VarChar(120)
+  note        String?        @db.Text
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  pharmacy    Pharmacy       @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  receipts    GoodsReceipt[]
+
+  @@unique([id, pharmacyId])
+  @@unique([pharmacyId, code])
+  @@index([pharmacyId, active])
+}
+
+model MedicineBatch {
+  id             String             @id @default(cuid())
+  pharmacyId     String
+  medicineId     String
+  lotNumber      String             @db.VarChar(80)
+  expiryDate     DateTime           @db.Date
+  receivedAt     DateTime           @default(now())
+  purchasePrice  Decimal            @db.Decimal(14, 2)
+  status         BatchStatus        @default(AVAILABLE)
+  isDemo         Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  medicine       Medicine           @relation(fields: [medicineId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  balance        InventoryBalance?
+  movements      StockMovement[]
+  receiptItems   GoodsReceiptItem[]
+  saleItems      SaleItem[]
+  stocktakeItems StocktakeItem[]
+
+  @@unique([id, pharmacyId])
+  @@unique([pharmacyId, medicineId, lotNumber])
+  @@index([pharmacyId, expiryDate, status])
+}
+
+model InventoryBalance {
+  id         String        @id @default(cuid())
+  pharmacyId String
+  batchId    String        @unique
+  quantity   Int           @default(0)
+  version    Int           @default(0) // Reserved for optimistic concurrency in Phase 2.
+  updatedAt  DateTime      @updatedAt
+  batch      MedicineBatch @relation(fields: [batchId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+
+  @@unique([batchId, pharmacyId])
+  @@index([pharmacyId])
+}
+
+model GoodsReceipt {
+  id           String             @id @default(cuid())
+  pharmacyId   String
+  supplierId   String
+  createdById  String
+  code         String             @db.VarChar(50)
+  documentNo   String             @db.VarChar(80)
+  receivedDate DateTime           @db.Date
+  status       DocumentStatus     @default(DRAFT)
+  total        Decimal            @db.Decimal(14, 2)
+  note         String?            @db.Text
+  isDemo       Boolean            @default(false)
+  confirmedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  pharmacy     Pharmacy           @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  supplier     Supplier           @relation(fields: [supplierId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  createdBy    User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items        GoodsReceiptItem[]
+
+  @@unique([id, pharmacyId])
+  @@unique([pharmacyId, code])
+  @@index([pharmacyId, receivedDate, status])
+}
+
+model GoodsReceiptItem {
+  id            String         @id @default(cuid())
+  pharmacyId    String
+  receiptId     String
+  medicineId    String
+  batchId       String?
+  lotNumber     String         @db.VarChar(80)
+  expiryDate    DateTime       @db.Date
+  unit          String         @db.VarChar(40)
+  quantity      Int
+  purchasePrice Decimal        @db.Decimal(14, 2)
+  receipt       GoodsReceipt   @relation(fields: [receiptId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  medicine      Medicine       @relation(fields: [medicineId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  batch         MedicineBatch? @relation(fields: [batchId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+
+  @@unique([id, pharmacyId])
+}
+
+model Stocktake {
+  id          String          @id @default(cuid())
+  pharmacyId  String
+  createdById String
+  code        String          @db.VarChar(50)
+  status      DocumentStatus  @default(DRAFT)
+  note        String?         @db.Text
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  pharmacy    Pharmacy        @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  createdBy   User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items       StocktakeItem[]
+
+  @@unique([id, pharmacyId])
+  @@unique([pharmacyId, code])
+}
+
+model StocktakeItem {
+  id               String        @id @default(cuid())
+  pharmacyId       String
+  stocktakeId      String
+  batchId          String
+  expectedQuantity Int
+  countedQuantity  Int
+  note             String?       @db.VarChar(255)
+  stocktake        Stocktake     @relation(fields: [stocktakeId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  batch            MedicineBatch @relation(fields: [batchId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+
+  @@unique([stocktakeId, batchId])
+}
+
+model Prescription {
+  id           String   @id @default(cuid())
+  pharmacyId   String
+  code         String   @db.VarChar(80)
+  prescribedAt DateTime @db.Date
+  prescriber   String   @db.VarChar(120)
+  note         String?  @db.Text
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  pharmacy     Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  sales        Sale[]
+
+  @@unique([id, pharmacyId])
+}
+
+model Sale {
+  id             String         @id @default(cuid())
+  pharmacyId     String
+  createdById    String
+  prescriptionId String?
+  code           String         @db.VarChar(50)
+  customerName   String         @default("Khách lẻ") @db.VarChar(120)
+  status         DocumentStatus @default(DRAFT)
+  subtotal       Decimal        @db.Decimal(14, 2)
+  discount       Decimal        @default(0) @db.Decimal(14, 2)
+  total          Decimal        @db.Decimal(14, 2)
+  isDemo         Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  pharmacy       Pharmacy       @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  createdBy      User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  prescription   Prescription?  @relation(fields: [prescriptionId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  items          SaleItem[]
+  payments       Payment[]
+
+  @@unique([id, pharmacyId])
+  @@unique([pharmacyId, code])
+  @@index([pharmacyId, createdAt, status])
+}
+
+model SaleItem {
+  id           String        @id @default(cuid())
+  pharmacyId   String
+  saleId       String
+  batchId      String
+  medicineName String        @db.VarChar(160)
+  unit         String        @db.VarChar(40)
+  quantity     Int
+  unitPrice    Decimal       @db.Decimal(14, 2)
+  sale         Sale          @relation(fields: [saleId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+  batch        MedicineBatch @relation(fields: [batchId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+
+  @@unique([id, pharmacyId])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  pharmacyId String
+  saleId     String
+  amount     Decimal       @db.Decimal(14, 2)
+  method     PaymentMethod
+  status     PaymentStatus @default(PENDING)
+  reference  String?       @db.VarChar(120)
+  createdAt  DateTime      @default(now())
+  sale       Sale          @relation(fields: [saleId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+
+  @@index([pharmacyId, createdAt])
+}
+
+model StockMovement {
+  id         String        @id @default(cuid())
+  pharmacyId String
+  batchId    String
+  type       MovementType
+  quantity   Int
+  reference  String        @db.VarChar(120)
+  isDemo     Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  batch      MedicineBatch @relation(fields: [batchId, pharmacyId], references: [id, pharmacyId], onDelete: Restrict)
+
+  @@unique([pharmacyId, reference, batchId, type])
+  @@index([pharmacyId, createdAt])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  pharmacyId String?
+  actorId    String
+  action     String    @db.VarChar(80)
+  entity     String    @db.VarChar(80)
+  entityId   String    @db.VarChar(80)
+  createdAt  DateTime  @default(now())
+  pharmacy   Pharmacy? @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  actor      User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([pharmacyId, createdAt])
+  @@index([actorId])
+}

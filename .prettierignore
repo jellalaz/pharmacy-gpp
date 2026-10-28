@@ -1,0 +1,5 @@
+node_modules
+dist
+package-lock.json
+docs/report/chapter-2-6/images
+backend/prisma/migrations

@@ -1,0 +1,65 @@
+name: Phase 1 CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: pharmacy_gpp_test
+          MYSQL_USER: pharmacy
+          MYSQL_PASSWORD: ci_test_only
+          MYSQL_ROOT_PASSWORD: ci_root_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      DATABASE_URL: mysql://pharmacy:ci_test_only@127.0.0.1:3306/pharmacy_gpp_test
+      APP_ORIGIN: http://localhost:5173
+      COOKIE_SECURE: 'false'
+      DEMO_SEED: 'true'
+      DEMO_PASSWORD: GppDemo!2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:integration
+      - run: npx playwright install --with-deps chromium
+      - name: Start application
+        run: |
+          npm run dev > /tmp/pharmacy-gpp.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5173/api/health; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/pharmacy-gpp.log
+          exit 1
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-and-report-images
+          path: |
+            playwright-report/
+            docs/report/chapter-2-6/images/
+          retention-days: 7
