@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   ClipboardList,
+  ClipboardCheck,
   Cross,
   Search,
   ShoppingBag,
@@ -42,6 +43,13 @@ const previews = [
     code: 'CN-14, CN-16',
     role: 'Quản trị viên',
     icon: ShieldCheck,
+  },
+  {
+    key: 'kiemke',
+    label: 'Kiểm kê thuốc',
+    code: 'CN-03',
+    role: 'Nhân viên kho',
+    icon: ClipboardCheck,
   },
 ] as const;
 
@@ -270,7 +278,36 @@ function Accounts() {
   );
 }
 
+function Stocktake() {
+  return (
+    <>
+      <Panel title="Thông tin đợt kiểm kê">
+        <div className="report-fields">
+          <Field label="Mã biên bản" value="KK-M01" />
+          <Field label="Mốc tồn sổ" value="22/11/2026 09:00" />
+          <Field label="Phạm vi kiểm kê" value="Kho thuốc · 3 lô" />
+        </div>
+      </Panel>
+      <Panel title="Kết quả kiểm đếm">
+        <Table
+          columns={['Thuốc và số lô', 'Đơn vị', 'Tồn sổ', 'Thực đếm', 'Chênh lệch', 'Tình trạng']}
+          rows={[
+            ['Thuốc mẫu A · LÔ-M01', 'Viên', '12', '12', '0', <Badge tone="success">Đã đếm</Badge>],
+            ['Thuốc mẫu A · LÔ-M02', 'Viên', '20', '0', '−20', <Badge tone="warning">Cần rà sai lệch</Badge>],
+            ['Thuốc mẫu B · LÔ-M03', 'Viên', '18', '', '—', <Badge tone="warning">Chưa đếm</Badge>],
+          ]}
+        />
+        <div className="report-result">
+          <span>Còn một lô chưa đếm. Biên bản chưa được xác nhận.</span>
+          <Button disabled>Xác nhận kiểm kê</Button>
+        </div>
+      </Panel>
+    </>
+  );
+}
+
 const screens = {
+  kiemke: { view: Stocktake, description: 'So thực đếm với tồn sổ theo lô ở cùng một mốc.' },
   taikhoan: { view: Accounts, description: 'Tra trạng thái tài khoản và xem các lần thay đổi quyền.' },
   nhap: { view: Receipt, description: 'Ghi chứng từ và đối chiếu phần thuốc thực nhận.' },
   ban: { view: Counter, description: 'Tra thuốc, chọn lô thực lấy và xem trước phiếu bán không kê đơn.' },
