@@ -1,5 +1,19 @@
 # 2.6 – Phác thảo giao diện người dùng
 
+## Bốn màn hình dùng trong bản G607 hiện tại
+
+Chạy `npm run dev -w frontend` rồi mở
+[`/report-preview.html`](http://localhost:5173/report-preview.html). Trang dùng chung
+kiểu giao diện của Pharmacy GPP và chạy bằng dữ liệu mẫu trong trình duyệt, không cần
+đăng nhập hay khởi động cơ sở dữ liệu.
+
+- `?man-hinh=nhap` — Tiếp nhận thuốc (CN-02).
+- `?man-hinh=ban` — Bán thuốc không kê đơn tại quầy (CN-08, CN-10).
+- `?man-hinh=lo` — Tra lô, chứng từ và trạng thái ngừng bán (CN-05, CN-06, CN-07).
+- `?man-hinh=don` — Đối chiếu từng dòng đơn (CN-09).
+
+## Ảnh chụp của bản thử trước
+
 Ứng dụng chạy thật với React, Express và MySQL 8.4, dữ liệu được tạo bởi seed. Các ảnh là screenshot Playwright, không dùng ảnh AI. Kích thước viewport và PNG là **1440 × 900**, locale vi-VN và múi giờ Asia/Ho_Chi_Minh. Tài khoản dùng đúng vai trò cho từng hình; không ghi mật khẩu hoặc cookie vào ảnh.
 
 ## Hình 2.9 – Giao diện quản lý nhà thuốc

@@ -5,6 +5,14 @@ import { fileURLToPath, URL } from 'node:url';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  build: {
+    rollupOptions: {
+      input: {
+        app: fileURLToPath(new URL('./index.html', import.meta.url)),
+        reportPreview: fileURLToPath(new URL('./report-preview.html', import.meta.url)),
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,
