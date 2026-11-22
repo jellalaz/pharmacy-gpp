@@ -1,6 +1,15 @@
 import { useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ClipboardList, Cross, Search, ShoppingBag, FileCheck2, Building2, UserRound } from 'lucide-react';
+import {
+  ClipboardList,
+  Cross,
+  Search,
+  ShoppingBag,
+  FileCheck2,
+  Building2,
+  UserRound,
+  ShieldCheck,
+} from 'lucide-react';
 import { Badge, PageHeader, SearchInput } from './components/common';
 import { Button } from './components/ui/button';
 import '@fontsource/be-vietnam-pro/400.css';
@@ -27,6 +36,13 @@ const previews = [
     icon: Search,
   },
   { key: 'don', label: 'Đối chiếu đơn thuốc', code: 'CN-09', role: 'Nhân viên bán thuốc', icon: FileCheck2 },
+  {
+    key: 'taikhoan',
+    label: 'Tài khoản và nhật ký',
+    code: 'CN-14, CN-16',
+    role: 'Quản trị viên',
+    icon: ShieldCheck,
+  },
 ] as const;
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -217,7 +233,45 @@ function Prescription() {
   );
 }
 
+function Accounts() {
+  return (
+    <>
+      <Panel title="Tài khoản nhân viên">
+        <Table
+          columns={['Tài khoản', 'Vai trò', 'Trạng thái']}
+          rows={[
+            ['NV-KHO01', 'Nhân viên kho', <Badge tone="success">Đang hoạt động</Badge>],
+            ['NV-BAN02', 'Nhân viên bán thuốc', <Badge tone="warning">Tạm khóa</Badge>],
+          ]}
+        />
+      </Panel>
+      <Panel title="Nhật ký thay đổi quyền">
+        <Table
+          columns={['Thời điểm', 'Người thực hiện', 'Thao tác', 'Tài khoản', 'Kết quả']}
+          rows={[
+            [
+              '22/11/2026 09:15',
+              'QT-M01',
+              'Tạm khóa tài khoản',
+              'NV-BAN02',
+              <Badge tone="success">Đã ghi</Badge>,
+            ],
+            [
+              '21/11/2026 14:20',
+              'QT-M01',
+              'Cấp vai trò Nhân viên kho',
+              'NV-KHO01',
+              <Badge tone="success">Đã ghi</Badge>,
+            ],
+          ]}
+        />
+      </Panel>
+    </>
+  );
+}
+
 const screens = {
+  taikhoan: { view: Accounts, description: 'Tra trạng thái tài khoản và xem các lần thay đổi quyền.' },
   nhap: { view: Receipt, description: 'Ghi chứng từ và đối chiếu phần thuốc thực nhận.' },
   ban: { view: Counter, description: 'Tra thuốc, chọn lô thực lấy và xem trước phiếu bán không kê đơn.' },
   lo: { view: Batches, description: 'Phân biệt tồn sổ với lượng còn được bán, truy chứng từ theo từng lô.' },

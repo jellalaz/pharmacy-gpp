@@ -1,6 +1,6 @@
 # 2.6 – Phác thảo giao diện người dùng
 
-## Bốn màn hình dùng trong bản G607 hiện tại
+## Năm màn hình dùng trong bản G607 hiện tại
 
 Chạy `npm run dev -w frontend` rồi mở
 [`/report-preview.html`](http://localhost:5173/report-preview.html). Trang dùng chung
@@ -11,6 +11,8 @@ kiểu giao diện của Pharmacy GPP và chạy bằng dữ liệu mẫu trong 
 - `?man-hinh=ban` — Bán thuốc không kê đơn tại quầy (CN-08, CN-10).
 - `?man-hinh=lo` — Tra lô, chứng từ và trạng thái ngừng bán (CN-05, CN-06, CN-07).
 - `?man-hinh=don` — Đối chiếu từng dòng đơn (CN-09).
+
+- `?man-hinh=taikhoan` — Tài khoản và nhật ký của Quản trị viên (CN-14, CN-16).
 
 ## Ảnh chụp của bản thử trước
 
